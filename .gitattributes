@@ -1,0 +1,5 @@
+# Default if core.autocrlf is not set
+* text=auto
+
+# .ipynb should always be LF
+*.ipynb text eol=lf
