@@ -1,3 +1,4 @@
 netflix_env
 *.csv
 *.xlsx
+*.pyc
