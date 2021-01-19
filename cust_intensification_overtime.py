@@ -1,6 +1,11 @@
 # To add a new cell, type '# %%'
 # To add a new markdown cell, type '# %% [markdown]'
 # %%
+import os
+print(os.getcwd())
+
+
+# %%
 #Customer Intensification (overtime)
 import pyodbc as pyodbc
 import pandas as pd
@@ -52,7 +57,7 @@ def cluster_label(x):
 #parameters: to sql 
 # snapshot period to compare
 snapshot_start_date ='2020-03-02'
-snapshot_end_date = '2020-11-02'
+snapshot_end_date = '2021-01-19'
 
 # how far back before the snapshot we want to look
 mth_to_snapshot = -12
@@ -452,10 +457,6 @@ NPS_w1_FY21_Q3.dropna(axis = 0, how ="all", inplace = True)
 #NPS_w1_FY2_Too soon list
 too_soon = pd.read_excel('C://Users//wanthana.j.app//OneDrive - New Zealand Trade and Enterprise//Survey//WaveI_FY21//20-11-25 FY21_w1.xlsx', sheet_name='Too Soon List')
 too_soon.dropna(axis = 0, how ="all", inplace = True)
-
-
-# %%
-
 
 
 # %%
@@ -1054,8 +1055,8 @@ df_compared["cohort_"].unique()
 import plotly.offline as py         #import chart_studio.plotly as py
 
 #prep data 
-#df = pd.DataFrame(df_compared.query("cohort_ != 'Cohort 1'"))
-df = pd.DataFrame(df_compared)
+df = pd.DataFrame(df_compared.query("cohort_ != 'Cohort 1'"))
+# df = pd.DataFrame(df_compared)
 df = (df.groupby(by = ["cluster_prev", "cluster_aftr"] )["Organisation Key_"].nunique()
       .reset_index()  
       .rename(columns = {"cluster_prev": "Source", "cluster_aftr":"Target", "Organisation Key_": "Value"})            
@@ -1114,7 +1115,7 @@ py.iplot(fig, validate=False)
 
 
 # %%
-
+df
 
 
 # %%
