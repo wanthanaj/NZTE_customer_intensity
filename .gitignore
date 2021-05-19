@@ -2,3 +2,4 @@ netflix_env
 *.csv
 *.xlsx
 *.pyc
+local.settings.json
