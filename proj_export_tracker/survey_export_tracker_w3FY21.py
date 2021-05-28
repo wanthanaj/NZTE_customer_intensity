@@ -2,6 +2,7 @@
 # 1. start off with distinctive list of w3 contacts
 # 1.1   add those contacts who were invited in w2 
 # 2. work out how many times each contacts were invited out of 6 waves.
+# 3. read the Engagement Intensity of customers (from https://app.powerbi.com/groups/40b6948e-1464-4281-98ee-0a27963502e9/reports/c531938d-1cca-4345-a486-7207dd3f25e2/ReportSection)
 
 #%%
 ## get working directory start and the project level
@@ -29,7 +30,9 @@ cnxn = get_connection_hardcode()
 ect_master_w3FY21 =  pd.read_csv(outDir + 'w3FY21_dummy_MasterContacts.csv')
 ect_master_w3FY21.shape             #expect (2023,24)
 
-w3_contacts = ect_master_w3FY21.groupby(['Contact_Name', 'Contact_Key', 'Is_Duplicate_Invite']).size().reset_index(name = 'TMs')
+w3_contacts = ect_master_w3FY21.groupby(['Contact_Name', 'Contact_Key'
+                                        , 'Is_Duplicate_Invite','Organisation_key'
+                                        , 'Organisation_Name' ]).size().reset_index(name = 'TMs')
 
 # %%
 
@@ -40,10 +43,13 @@ with open('scripts//ect_master_dummy_w3FY21.sql', 'r') as sql_file:
                                   
 w2_FY21_master_contact_twice_invite  = ect_master_w2FY21.copy().query('Is_Duplicate_Invite == 1 and wave == 2')
 w2_FY21_master_contact_twice_invite['Contact_Key'].nunique()        #expect  333 contacts
-w2_contacts = w2_FY21_master_contact_twice_invite.groupby(['Contact_Name', 'Contact_Key', 'Is_Duplicate_Invite']).size().reset_index(name = 'TMs')
+w2_contacts = w2_FY21_master_contact_twice_invite.groupby(['Contact_Name', 'Contact_Key'
+                                , 'Is_Duplicate_Invite', 'Organisation_key'
+                                , 'Organisation_Name' ]).size().reset_index(name = 'TMs')
 
 w3_contacts_activities = w3_contacts.append(w2_contacts)
-w3_contacts_activities.shape        #expect (1963,4)
+w3_contacts_activities.shape        #expect (1963,4) and should remain the same throughout this analysis
+
 
 #%%
 # 2. work out how many times each contacts were invited out of 4 waves.
@@ -58,7 +64,8 @@ ect_master['year_wave']  = ect_master['Fiscal_Year'].astype(str) + "-" + ect_mas
 ## 3361 distinctive contacts across 2 Fiscal Years, but 1963  for latest wave
 ect_master_FY20FY1 = ect_master.groupby(['Contact_Name', 'Contact_Key'])['year_wave'].nunique().reset_index(name = "invites_count").sort_values("invites_count", ascending = False)
 
-master_contacts_latestFY =  pd.merge(w3_contacts_activities, ect_master_FY20FY1[["Contact_Key", "Contact_Name","invites_count"]], how = 'left', on = ["Contact_Key", "Contact_Name"])
+master_contacts_latestFY =  pd.merge(w3_contacts_activities
+                        , ect_master_FY20FY1[["Contact_Key", "Contact_Name","invites_count"]], how = 'left', on = ["Contact_Key", "Contact_Name"])
 
 master_contacts_latestFY.shape
 
@@ -99,15 +106,51 @@ idx = master_contacts_response_rate.columns.str.startswith('R_w')
 master_contacts_response_rate['total_responses'] = master_contacts_response_rate.iloc[:, idx].sum(axis = 1)
 master_contacts_response_rate['response_rate'] = master_contacts_response_rate['total_responses']/master_contacts_response_rate['invites_count']
 
-# %%
-# 
 master_contacts_response_rate.info()
 # %%
 master_contacts_response_rate.groupby(by = ['response_rate', 'invites_count']).size()
-# %%
 
 master_contacts_response_rate.groupby(by = ['response_rate']).size()
-# %%
+
 master_contacts_response_rate['response_rate'].value_counts()
+
 # %%
-``
+## 3.  Read Engagment Intensity 
+egm_intensity =  pd.read_csv('C://Users//wanthana.j.app//OneDrive - New Zealand Trade and Enterprise//Survey//Wave3_FY21//Engagment Intensity.csv')
+egm_intensity =  egm_intensity.rename(columns = { 'Legal Name':'Organisation_Name'
+                                , 'Key': 'Organisation_key' })
+egm_intensity.columns.to_list()
+
+#%% 
+##3.1 adding Intensity to the master_contacts_list
+master_contacts_response_rate_egm = pd.merge(master_contacts_response_rate
+                                        , egm_intensity[['Organisation_key', '#IntensityScore_Opt1']]
+                                        , how = 'left', on = 'Organisation_key')
+
+
+(master_contacts_response_rate_egm.groupby(by = ['response_rate', '#IntensityScore_Opt1']).size().reset_index(name = 'count')
+        .pivot_table(index = 'response_rate', columns = '#IntensityScore_Opt1', values = 'count')
+        .fillna(0)
+        .astype('int')
+)
+# %%
+##3.1.1 adding Intensity to the master_contacts_list (using WJ model)
+df_compared = pd.read_csv('data/cluster_aftr20210502.csv')
+wj_intensity = df_compared[['cluster_label_x', 'Organisation Key']].rename(columns = {'Organisation Key': 'Organisation_key'})
+
+wj_intensity['cluster_label_x'].value_counts()
+
+master_contacts_response_rate_egm_wj = pd.merge(master_contacts_response_rate
+                                        , wj_intensity[['Organisation_key', 'cluster_label_x']]
+                                        , how = 'left', on = 'Organisation_key').fillna("Undefined")
+
+
+
+(master_contacts_response_rate_egm_wj.groupby(by = ['response_rate', 'cluster_label_x']).size().reset_index(name = 'count')
+        .pivot_table(index = 'response_rate', columns = 'cluster_label_x', values = 'count')
+        .fillna(0)
+        .astype('int')
+)
+# %%
+
+# %%
