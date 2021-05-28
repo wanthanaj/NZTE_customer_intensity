@@ -48,9 +48,9 @@ def get_sql_credential():
     _sc = SecretClient(vault_url= KEYVAULT_URL, credential = credential)
 
     print('Get Secret Client         |')
-    sql_username = _sc.get_secret("Username").value
-    sql_password = _sc.get_secret("Password").value
-
+    sql_username = _sc.get_secret("sqlrepp1-prdCRMReport-username").value
+    sql_password = _sc.get_secret("sqlrepp1-prdCRMReport-password").value
+        
     logging.info('SQL_username %s', sql_username)    
 
     return (sql_username, sql_password)
