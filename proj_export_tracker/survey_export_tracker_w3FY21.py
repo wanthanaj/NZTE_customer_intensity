@@ -22,9 +22,10 @@ outDir  = 'data//survey_w3_FY21//'
 scriptDir = 'src//'
 
 from src.azure_db import get_connection_hardcode, get_sql_credential, get_connection
-# username , password = get_sql_credential()
-# cnxn = get_connection(username, password)
-cnxn = get_connection_hardcode()
+username , password = get_sql_credential()
+cnxn = get_connection(username, password)
+
+#cnxn = get_connection_hardcode()
 # %%
 ## 1. read w3 master contacts - **TO BE REPLACED WITH ACTUALLY VALUE FROM DB**
 ect_master_w3FY21 =  pd.read_csv(outDir + 'w3FY21_dummy_MasterContacts.csv')
@@ -124,12 +125,12 @@ egm_intensity.columns.to_list()
 #%% 
 ##3.1 adding Intensity to the master_contacts_list
 master_contacts_response_rate_egm = pd.merge(master_contacts_response_rate
-                                        , egm_intensity[['Organisation_key', '#IntensityScore_Opt1']]
-                                        , how = 'left', on = 'Organisation_key')
+                                        , egm_intensity[['Organisation_key', 'IntensityScore_Opt1']]
+                                        , how = 'left', on = 'Organisation_key').fillna("Undefined")
 
 
-(master_contacts_response_rate_egm.groupby(by = ['response_rate', '#IntensityScore_Opt1']).size().reset_index(name = 'count')
-        .pivot_table(index = 'response_rate', columns = '#IntensityScore_Opt1', values = 'count')
+(master_contacts_response_rate_egm.groupby(by = ['response_rate', 'IntensityScore_Opt1']).size().reset_index(name = 'count')
+        .pivot_table(index = 'response_rate', columns = 'IntensityScore_Opt1', values = 'count')
         .fillna(0)
         .astype('int')
 )
@@ -140,7 +141,7 @@ wj_intensity = df_compared[['cluster_label_x', 'Organisation Key']].rename(colum
 
 wj_intensity['cluster_label_x'].value_counts()
 
-master_contacts_response_rate_egm_wj = pd.merge(master_contacts_response_rate
+master_contacts_response_rate_egm_wj = pd.merge(master_contacts_response_rate_egm
                                         , wj_intensity[['Organisation_key', 'cluster_label_x']]
                                         , how = 'left', on = 'Organisation_key').fillna("Undefined")
 
@@ -152,5 +153,13 @@ master_contacts_response_rate_egm_wj = pd.merge(master_contacts_response_rate
         .astype('int')
 )
 # %%
+master_contacts_response_rate_egm_wj.groupby(by = ['cluster_label_x','IntensityScore_Opt1']).size()
 
+# %%
+df = master_contacts_response_rate_egm_wj['IntensityScore_Opt1'].value_counts().reset_index()
+df['pct'] = df['IntensityScore_Opt1'] / df['IntensityScore_Opt1'].sum()
+df
+# %%
+WJ_high_CF_light = master_contacts_response_rate_egm_wj.query("cluster_label_x == 'High' and IntensityScore_Opt1 == 'Light'")
+WJ_high_CF_light.shape
 # %%
