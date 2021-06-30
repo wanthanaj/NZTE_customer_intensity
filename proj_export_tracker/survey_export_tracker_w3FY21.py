@@ -40,7 +40,7 @@ print(ect_master_w3FY21.shape)
 
 w3_contacts = ect_master_w3FY21.groupby(['Contact_Name', 'Contact_Key'
                                         , 'Is_Duplicate_Invite','Organisation_key'
-                                        , 'Organisation_Name' ]).size().reset_index(name = 'TMs')
+                                        , 'Organisation_Name' , 'Contact_Type', 'Contact_Email']).size().reset_index(name = 'TMs')
 print("wave 3 FY21 contacts")
 print(w3_contacts.shape)        #1636 contacts surveyed in w3 FY21
 
@@ -48,15 +48,24 @@ print(w3_contacts.shape)        #1636 contacts surveyed in w3 FY21
 
 ## 1.1 read those duplicated in w2  FY21 and used the list as to find NR over 2 FYs 
 ## output : distinctive list of contacts for analysis FY21 W3, including those invited twice in wave2
-w2_FY21_master_contact_twice_invite  = ect_master.copy().query('wave == 2 and Fiscal_Year == 2021 and Is_Duplicate_Invite ==1')
-w2_FY21_master_contact_twice_invite['Contact_Key'].nunique()        #expect  333 contacts
-w2_contacts = w2_FY21_master_contact_twice_invite.groupby(['Contact_Name', 'Contact_Key'
-                                , 'Is_Duplicate_Invite', 'Organisation_key'
-                                , 'Organisation_Name' ]).size().reset_index(name = 'TMs')
+# w2_FY21_master_contact_twice_invite  = ect_master.copy().query('wave == 2 and Fiscal_Year == 2021 and Is_Duplicate_Invite ==1')
+# w2_FY21_master_contact_twice_invite['Contact_Key'].nunique()        #expect  333 contacts
+# w2_contacts = w2_FY21_master_contact_twice_invite.groupby(['Contact_Name', 'Contact_Key'
+#                                 , 'Is_Duplicate_Invite', 'Organisation_key'
+#                                 , 'Organisation_Name' ]).size().reset_index(name = 'TMs')
 
-w3_contacts_activities = w3_contacts.append(w2_contacts)
-print("w3 contacts (including the duplicated ones in w2)")
-print(w3_contacts_activities.shape)        #expect (1969,6) and should remain the same throughout this analysis
+# w3_contacts_activities = w3_contacts.append(w2_contacts)
+# print("w3 contacts (including the duplicated ones in w2)")
+# print(w3_contacts_activities.shape)        #expect (1969,6) and should remain the same throughout this analysis
+
+#%%
+#whole contacts in FY20-FY21
+all_contacts = ect_master.groupby(['Contact_Name', 'Contact_Key'
+                                        , 'Is_Duplicate_Invite','Organisation_key'
+                                        , 'Organisation_Name' , 'Contact_Type', 'Contact_Email']).size().reset_index(name = 'TMs')
+
+print("all contacts in the last 2 years")
+print(all_contacts.shape)
 
 #%%
 # ??2. work out how many times each contacts were invited out of 4 waves.
@@ -68,12 +77,13 @@ ect_master['year_wave']  = ect_master['Fiscal_Year'].astype(str) + "-" + ect_mas
 ## 3361 distinctive contacts across 2 Fiscal Years, but 1963  for latest wave
 ect_master_invite_FY20FY21 = ect_master.groupby(['Contact_Name', 'Contact_Key'])['year_wave'].nunique().reset_index(name = "invites_count").sort_values("invites_count", ascending = False)
 
-master_contacts_latestFY =  pd.merge(w3_contacts_activities
+master_contacts_latestFY =  pd.merge(all_contacts
                         , ect_master_invite_FY20FY21[["Contact_Key", "Contact_Name","invites_count"]]
                         , how = 'left', on = ["Contact_Key", "Contact_Name"])
 
 print("w3 contacts + tms + #invites")
 print(master_contacts_latestFY.shape)
+
 
 
 # %%
@@ -91,6 +101,7 @@ prev_response = response_FY20.append(response_FY21)
 prev_response['Contact_Key'] = prev_response['Contact.Wave.Year'].str.split("-wave").str[0]
 prev_response['Contact_Name'] = prev_response['Survey Tracker Answer Respondent Name'].str.title()                  #convert to Camel Case
 
+
 # %%
 master_contacts_response_by_wave = (prev_response.groupby(by = ['Contact_Key', 'Contact_Name','Wave.Year']).size()
                                 .reset_index(name = "count")
@@ -99,7 +110,8 @@ master_contacts_response_by_wave = (prev_response.groupby(by = ['Contact_Key', '
                                 .fillna(0)
                                 .sort_values('Contact_Name')
                                 )
-master_contacts_response_rate = (pd.merge(master_contacts_latestFY, master_contacts_response_by_wave, how = 'left', on = ['Contact_Key', 'Contact_Name'])
+master_contacts_response_rate = (pd.merge(master_contacts_latestFY, master_contacts_response_by_wave
+                                                , how = 'left', on = ['Contact_Key']) 
                                 .fillna(0)
                                 .sort_values('Contact_Name')
                                 )
@@ -182,4 +194,6 @@ df
 # %%
 WJ_high_CF_light = master_contacts_response_rate_egm_wj.query("cluster_label_x == 'High' and IntensityScore_Opt1 == 'Light'")
 WJ_high_CF_light.shape
+# %%
+
 # %%
