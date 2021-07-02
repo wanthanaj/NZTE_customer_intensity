@@ -34,6 +34,8 @@ cnxn = get_connection(username, password)
 with open('scripts//ect_master.sql', 'r') as sql_file:
         ect_master = pd.read_sql(sql_file.read(), cnxn)
 
+## add year_wave for future grouping
+ect_master['year_wave']  = ect_master['Fiscal_Year'].astype(str) + "-" + ect_master['wave'].astype(str)
                                   
 ect_master_w3FY21  = ect_master.copy().query('wave == 3 and Fiscal_Year == 2021')
 print(ect_master_w3FY21.shape)
@@ -60,19 +62,17 @@ print(w3_contacts.shape)        #1636 contacts surveyed in w3 FY21
 
 #%%
 #whole contacts in FY20-FY21
-all_contacts = ect_master.groupby(['Contact_Name', 'Contact_Key'
-                                        , 'Is_Duplicate_Invite','Organisation_key'
-                                        , 'Organisation_Name' , 'Contact_Type', 'Contact_Email']).size().reset_index(name = 'TMs')
-
+contact_cols = ['Contact_Name', 'Contact_Key','Organisation_key', 'Organisation_Name' , 'Contact_Type', 'Contact_Email']
+all_contacts = (ect_master.groupby(contact_cols + ['year_wave']).size().reset_index(name = 'rows')
+                        .pivot_table(index  = contact_cols, columns = 'year_wave', values = 'rows')
+                        .reset_index()
+                )
 print("all contacts in the last 2 years")
 print(all_contacts.shape)
 
 #%%
 # ??2. work out how many times each contacts were invited out of 4 waves.
 # ect_master.groupby(by = ['Fiscal_Year', 'wave'])['Contact_Key'].count()
-
-## add year_wave for future grouping
-ect_master['year_wave']  = ect_master['Fiscal_Year'].astype(str) + "-" + ect_master['wave'].astype(str)
 
 ## 3361 distinctive contacts across 2 Fiscal Years, but 1963  for latest wave
 ect_master_invite_FY20FY21 = ect_master.groupby(['Contact_Name', 'Contact_Key'])['year_wave'].nunique().reset_index(name = "invites_count").sort_values("invites_count", ascending = False)
@@ -103,12 +103,13 @@ prev_response['Contact_Name'] = prev_response['Survey Tracker Answer Respondent 
 
 
 # %%
-master_contacts_response_by_wave = (prev_response.groupby(by = ['Contact_Key', 'Contact_Name','Wave.Year']).size()
+master_contacts_response_by_wave = (prev_response.groupby(by = ['Contact_Key', 'Contact_Name', 'Wave.Year']).size()
                                 .reset_index(name = "count")
                                 .assign(response_count = lambda x: x['count'].map(lambda count: 1 if count > 0 else 0)) 
                                 .pivot_table(index = ['Contact_Key','Contact_Name'], columns = 'Wave.Year', values = "response_count")
                                 .fillna(0)
                                 .sort_values('Contact_Name')
+                                #.reset_index()
                                 )
 master_contacts_response_rate = (pd.merge(master_contacts_latestFY, master_contacts_response_by_wave
                                                 , how = 'left', on = ['Contact_Key']) 
@@ -118,7 +119,7 @@ master_contacts_response_rate = (pd.merge(master_contacts_latestFY, master_conta
 #rename columns for response count
 master_contacts_response_rate.columns = master_contacts_response_rate.columns.str.replace("wave", "R_w")
 #change from float to int
-filter_col = [col for col in master_contacts_response_rate if col.startswith('R_w')]
+filter_col = [col for col in master_contacts_response_rate if '20' in col]
 master_contacts_response_rate[filter_col] = master_contacts_response_rate[filter_col].astype(int)
 
 #counts how many response times for each contact
@@ -135,6 +136,7 @@ master_contacts_response_rate.groupby(by = ['response_rate']).size()
 
 master_contacts_response_rate['response_rate'].value_counts()
 
+
 # %%
 ## 3.  Read Engagment Intensity 
 with open('scripts//ect_CMIntensityModel.sql', 'r') as sql_file:
@@ -144,10 +146,11 @@ egm_intensity =  egm_intensity.rename(columns = { 'Legal_Name':'Organisation_Nam
                                 , 'Org_Key': 'Organisation_key' })
 egm_intensity.columns.to_list()
 
+
 #%% 
 ##3.1 adding Intensity to the master_contacts_list
 master_contacts_response_rate_egm = pd.merge(master_contacts_response_rate
-                                        , egm_intensity #[['Organisation_key', 'IntensityScore_Opt1']]
+                                        , egm_intensity#[['Organisation_key', 'IntensityScore_Opt1']]
                                         , how = 'left', on = 'Organisation_key').fillna("Undefined")
 
 
@@ -168,14 +171,17 @@ master_contacts_response_rate_egm_wj = pd.merge(master_contacts_response_rate_eg
                                         , how = 'left', on = 'Organisation_key').fillna("Undefined")
 
 
+master_contacts_response_rate_egm_wj =  master_contacts_response_rate_egm_wj.rename(columns = {'cluster_label_x':'intesity_wj'})
+                                
+                                
 
-(master_contacts_response_rate_egm_wj.groupby(by = ['response_rate', 'cluster_label_x']).size().reset_index(name = 'count')
-        .pivot_table(index = 'response_rate', columns = 'cluster_label_x', values = 'count')
+(master_contacts_response_rate_egm_wj.groupby(by = ['response_rate', 'intesity_wj']).size().reset_index(name = 'count')
+        .pivot_table(index = 'response_rate', columns = 'intesity_wj', values = 'count')
         .fillna(0)
         .astype('int')
 )
 # %%
-master_contacts_response_rate_egm_wj.groupby(by = ['cluster_label_x','IntensityScore_Opt1']).size()
+master_contacts_response_rate_egm_wj.groupby(by = ['intesity_wj','IntensityScore_Opt1']).size()
 
 #added more features
 # w3_contacts_response_rate = pd.merge(master_contacts_response_rate_egm_wj
@@ -192,8 +198,89 @@ df = master_contacts_response_rate_egm_wj['IntensityScore_Opt1'].value_counts().
 df['pct'] = df['IntensityScore_Opt1'] / df['IntensityScore_Opt1'].sum()
 df
 # %%
-WJ_high_CF_light = master_contacts_response_rate_egm_wj.query("cluster_label_x == 'High' and IntensityScore_Opt1 == 'Light'")
-WJ_high_CF_light.shape
+master_contacts_response_by_wave = (prev_response.groupby(by = ['Contact_Key', 'Contact_Name','Wave.Year']).size()
+                                .reset_index(name = "count")
+                                .assign(response_count = lambda x: x['count'].map(lambda count: 1 if count > 0 else 0)) 
+                                .pivot_table(index = ['Contact_Key','Contact_Name'], columns = 'Wave.Year', values = "response_count")
+                                .fillna(0)
+                                .sort_values('Contact_Name')
+                                )
+# master_contacts_response_rate = (pd.merge(master_contacts_latestFY, master_contacts_response_by_wave
+#                                                 , how = 'left', on = ['Contact_Key']) 
+#                                 .fillna(0)
+#                                 .sort_values('Contact_Name')
+#                                 )
+
+# %%
+## Company Level : work out response rate at customer level
+#######################################
+#2,518 customers were invited over 2 FYs
+customers = (ect_master#.query("Organisation_key == 'AC01C543-C8F5-DF11-A1F6-02BF0ADC02DB'")
+                #.query("Organisation_Name == 'Daifuku Oceania Limited'")
+                .groupby(['Organisation_key'
+                        #, 'Organisation_Name'
+                        ,'year_wave'])['Contact_Key'].nunique()
+                .reset_index(name = 'invited_contacts')
+                .pivot_table(index = ['Organisation_key'] #, 'Organisation_Name']
+                                , columns=['year_wave'] , values = 'invited_contacts')
+                .reset_index()
+                #.sort_values('Organisation_Name')                               
+                .fillna(0)                
+                )                
+# #counts how many response times for each contact
+
+# customers['total_invite_waves'] = lambda x: x[]
+# ##customer.iloc[:, idx].sum(axis = 1)
+
+idx = customers.columns.str.startswith('20')
+filter_col = [col for col in customers if col.startswith('20')]                       
+customers[filter_col] = customers[filter_col].astype(int)
+#add count invited_contacts of a company over 2 FYs
+customers['max_invited_contacts'] =  customers.iloc[:, idx].max(axis = 1)
+
+# join with customers survey invite list to limits customers list down to just
+# current Focus 1,522 companies
+focus_survey_with_CF_intensity = pd.merge(customers, egm_intensity, how = 'inner'
+                , on = "Organisation_key").fillna(0)             
+focus_survey_with_CF_intensity
+
+
+
+#%%
+## NON Response || customers level
+focus = master_contacts_response_rate_egm_wj.query("Organisation_Name_y != 'Undefined'")
+
+focus_activity = (focus.groupby(by = ['Organisation_key' 
+                                #,'Organisation_Name_x'
+                                , 'NZTE_Sector'])['response_rate'].sum()
+                       .reset_index(name = "response_rate")
+)
+
+# %%
+focus_rr = (pd.merge(focus_activity, customers, how = 'left'
+                , on = "Organisation_key")
+                #.sort_values('Organisation_Name')
+)
+
+
+# focus_rr["Organisation_Name_x"].value_counts()
+idx = focus_rr.columns.str.startswith('20')
+#count only waves that invited contacts  greater than zero
+focus_rr['invites_count'] =  focus_rr.iloc[:, idx].gt(0).sum(axis=1)
+focus_rr.query("Organisation_key == 'AC01C543-C8F5-DF11-A1F6-02BF0ADC02DB'")
+#%%
+#get rid of double records due to the company name changes.
+focus_rr_cln = (focus_rr.groupby(by = ['Organisation_key']).first()                
+                        .reset_index()
+                        #.sort_values('Organisation_Name')
+                        .merge(egm_intensity, how = 'left', on = "Organisation_key")
+)
+focus_rr_cln.query("Organisation_key == 'AC01C543-C8F5-DF11-A1F6-02BF0ADC02DB'") 
+
+# %%
+focus_nr = focus_rr_cln.query("response_rate == 0")
+
+focus_rr_cln.to_excel(outDir + "response_rate_customer2.xlsx",  index = False, header = True , encoding = "utf-8")
 # %%
 
 # %%
