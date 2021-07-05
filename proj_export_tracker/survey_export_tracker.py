@@ -1,5 +1,6 @@
 # To add a new cell, type '# %%'
 # To add a new markdown cell, type '# %% [markdown]'
+
 # %%
 import os
 path="C://Users//wanthana.j.app//OneDrive - New Zealand Trade and Enterprise//src//customer-intensity//"
@@ -17,21 +18,12 @@ pd.set_option('float_format', '{:.0f}'.format)
 outDir  = 'data//'
 
 #connections
-server = 'tcp:ausse-nzte-sqlrepp1.database.windows.net'
-database = 'prdCRMReport'
-driver = '{ODBC Driver 17 for SQL Server}'
-username = 'prdCRMReport_Admin_Read'
-password = '?ZvEHun3PE$E793G'
+from src.azure_db import get_sql_credential, get_connection
+username , password = get_sql_credential()
+cnxn = get_connection(username, password)
 
-
-# %%
-#set up db connection
-cnxn = pyodbc.connect('DRIVER=' + driver +';SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password)
-
+#%%
 ####################################################################################
-#Prepare investor profiles #
- 
-#Extract Investor list
 ## read from database
 with open('scripts//ect_master.sql', 'r') as sql_file:
         ect_master= pd.read_sql(sql_file.read(), cnxn)
