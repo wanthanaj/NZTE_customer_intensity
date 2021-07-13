@@ -54,7 +54,7 @@ print(w3_contacts.shape)        #1636 contacts surveyed in w3 FY21
 # w2_FY21_master_contact_twice_invite['Contact_Key'].nunique()        #expect  333 contacts
 # w2_contacts = w2_FY21_master_contact_twice_invite.groupby(['Contact_Name', 'Contact_Key'
 #                                 , 'Is_Duplicate_Invite', 'Organisation_key'
-#                                 , 'Organisation_Name' ]).size().reset_index(name = 'TMs')
+#                       dfd          , 'Organisation_Name' ]).size().reset_index(name = 'TMs')
 
 # w3_contacts_activities = w3_contacts.append(w2_contacts)
 # print("w3 contacts (including the duplicated ones in w2)")
@@ -62,6 +62,7 @@ print(w3_contacts.shape)        #1636 contacts surveyed in w3 FY21
 
 #%%
 #whole contacts in FY20-FY21
+#including company details so that contacts response rate reflecting both companies
 contact_cols = ['Contact_Name', 'Contact_Key','Organisation_key', 'Organisation_Name' , 'Contact_Type', 'Contact_Email']
 all_contacts = (ect_master.groupby(contact_cols + ['year_wave']).size().reset_index(name = 'rows')
                         .pivot_table(index  = contact_cols, columns = 'year_wave', values = 'rows')
@@ -84,8 +85,6 @@ master_contacts_latestFY =  pd.merge(all_contacts
 print("w3 contacts + tms + #invites")
 print(master_contacts_latestFY.shape)
 
-
-
 # %%
 # 2.1 work out how many times each contacts responded 
 ## read responses from static files in OneDrive (used in previous analysis)
@@ -100,7 +99,7 @@ response_FY20 =  pd.read_excel('C://Users//wanthana.j.app//OneDrive - New Zealan
 prev_response = response_FY20.append(response_FY21)                
 prev_response['Contact_Key'] = prev_response['Contact.Wave.Year'].str.split("-wave").str[0]
 prev_response['Contact_Name'] = prev_response['Survey Tracker Answer Respondent Name'].str.title()                  #convert to Camel Case
-
+# 1584 contacts responded in FY20 and FY21
 
 # %%
 master_contacts_response_by_wave = (prev_response.groupby(by = ['Contact_Key', 'Contact_Name', 'Wave.Year']).size()
